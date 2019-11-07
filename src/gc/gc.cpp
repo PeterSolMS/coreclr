@@ -19893,7 +19893,7 @@ void gc_heap::background_mark_simple1 (uint8_t* oo THREAD_NUMBER_DCL)
                         uint8_t* o = *ppslot;
                         Prefetch(o);
 
-                        if (background_mark (o, 
+                        if (background_mark (o,
                                             background_saved_lowest_address, 
                                             background_saved_highest_address))
                         {
@@ -19912,13 +19912,19 @@ void gc_heap::background_mark_simple1 (uint8_t* oo THREAD_NUMBER_DCL)
 
                             }
                         }
+                        if (g_fSuspensionPending > 0)
+                        {
+                            //update the start
+                            *place = (uint8_t*)(ppslot + 1);
+                            goto more_to_do;
+                        }
 
-                    }
+                        }
                         );
                     //we are finished with this object
                     *place = 0; 
                     *(place+1) = 0;
-
+                
                 more_to_do:;
                 }
                 else
@@ -27974,9 +27980,6 @@ void gc_heap::revisit_written_page (uint8_t* page,
             }
             else if (
                 concurrent_p &&
-#ifndef FEATURE_USE_SOFTWARE_WRITE_WATCH_FOR_GC_HEAP // see comment below
-                large_objects_p &&
-#endif // !FEATURE_USE_SOFTWARE_WRITE_WATCH_FOR_GC_HEAP
                 ((CObjectHeader*)o)->IsFree() &&
                 (next_o > min (high_address, page + WRITE_WATCH_UNIT_SIZE)))
             {
@@ -28025,6 +28028,11 @@ end_limit:
 
     dprintf (3,("Last object: %Ix", (size_t)last_object));
     last_page = align_write_watch_lower_page (o);
+
+    if (concurrent_p)
+    {
+        allow_fgc();
+    }
 }
 
 // When reset_only_p is TRUE, we should only reset pages that are in range
